@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <getopt.h>
+#include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <net/if.h>
 #include <netinet/ether.h>
@@ -110,7 +111,7 @@ int main(int argc, char *argv[])
 
     int sockfd;
     /* Open RAW socket to send on */
-    if ((sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+    if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
         perror("socket");
         free(sendbuf);
         return -1;
@@ -134,7 +135,7 @@ int main(int argc, char *argv[])
         goto end;
     }
 
-    /* use MTU size if packetsize is 0 */
+    /* Use MTU size if packetsize is 0 */
     if (sender_params.packetsize == 0) {
         struct ifreq if_mtu = {};
         strncpy(if_mtu.ifr_name, sender_params.interface, IFNAMSIZ - 1);
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
     }
 
     /* Construct the Ethernet header */
-    int tx_len = 0;
+    int tx_len = sizeof(struct ether_header) + sender_params.packetsize;
     memset(sendbuf, 0, sender_params.packetsize);
     /* Ethernet header */
     struct ether_header *eh = (struct ether_header *)sendbuf;
@@ -165,15 +166,13 @@ int main(int argc, char *argv[])
     eh->ether_dhost[5] = (uint8_t)sender_params.ether_mac[5];
     /* Ethertype field */
     eh->ether_type = htons(sender_params.ether_proto);
-    tx_len += sizeof(struct ether_header);
 
     /* Packet data */
-    int i, len = strlen(sender_params.data) + 1;
-    for (i = 0; tx_len < sender_params.packetsize; tx_len++) {
-        sendbuf[tx_len] = sender_params.data[i];
-        i = (i + 1) % len;
+    int i, len = strlen(sender_params.data);
+    for (i = 0; i < sender_params.packetsize; i++) {
+        sendbuf[i + sizeof(struct ether_header)] = sender_params.data[i % len];
     }
-    sendbuf[sender_params.packetsize - 1] = 0;
+    sendbuf[tx_len - 1] = 0;
 
     struct sockaddr_ll socket_address = {};
     /* Index of the network device */
