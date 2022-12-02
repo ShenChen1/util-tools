@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/*
+ * This module allocates all available system memory besides configurable
+ * @free_*_space to avoid oom situations. In case test finds
+ * broken memory segments, physical and virtual affected memory will be printed.
+ *
+ * In case of CONFIG_HIGHMEM, memory test will go through
+ * HighMem, LowMem (Slab) and Vmalloc memory.
+ */
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/module.h>
@@ -72,11 +82,9 @@ MODULE_PARM_DESC(stop_test, "Interrupt test by passing 1");
 static void meminfo_show(const char *info)
 {
 	struct sysinfo si;
-	char mem_info[200];
 
-	strncpy(mem_info, info, ARRAY_SIZE(mem_info) - 1);
 	si_meminfo(&si);
-	pr_emerg("************ %s ************\n", mem_info);
+	pr_emerg("************ %s ************\n", info);
 	pr_emerg("MemTotal: %llu MB, MemFree: %llu MB, MemAvailable: %llu MB\n",
 		 PAGES_TO_MB(si.totalram),
 		 PAGES_TO_MB(si.freeram),
